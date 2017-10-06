@@ -1,0 +1,154 @@
+version: '3'
+services:
+
+  cadvisor:
+    image: google/cadvisor:0.15.1
+    volumes:
+     - /:/rootfs:ro
+     - /var/run:/var/run:rw
+     - /sys:/sys:ro
+     - /var/lib/docker/:/var/lib/docker:ro
+     
+  nginx:
+    image: nuancemobility/nginx
+    links:
+     - uchiwa
+     - grafana
+     - kibana4
+     - elasticsearch
+     - cadvisor
+     - graphite
+     - configsynchronizer
+     - screenshoter
+    volumes:
+     - ./run/nginx/config/nginx.conf:/etc/nginx/nginx.conf
+     - ./run/nginx/config/includes:/etc/nginx/includes
+     - ./run/nginx/html:/usr/share/nginx/html
+     - ./run/nginx/ssl:/etc/nginx/ssl
+    ports:
+     - "443:443"
+     - "8080:8080"
+     - "4242:4242"
+     
+  configsynchronizer:
+    image: nuancemobility/hera-config-synchronizer
+    links:
+     - elasticsearch
+    environment:
+     - ELASTICSEARCH_URL=http://elasticsearch:9200/
+     - GIT_REPOSITORY=https://github.com/Nuance-Mobility/hera-dashboards-example.git
+     
+  screenshoter:
+    image: nuancemobility/web-screenshoter
+    
+    
+  # -------- stack: graphite --------
+  carbonrelay:
+    image: nuancemobility/carbon
+    command: relay
+    ports:
+     - "2003:2003"
+     - "2004:2004"
+    volumes:
+     - ./run/carbon/relay:/etc/carbon
+    links:
+     - carboncache
+     
+  carboncache:
+    image: nuancemobility/carbon
+    command: cache
+    volumes:
+     - ./run/carbon/cache:/etc/carbon
+    volumes_from:
+     - heramonitoring_whisper_1
+     
+  graphite:
+    image: nuancemobility/graphite-web
+    volumes:
+     - ./run/graphite-web:/etc/graphite
+    volumes_from:
+     - heramonitoring_whisper_1
+    links:
+     - carboncache
+     
+  whisper:
+    image: nuancemobility/carbon
+    command: whisper
+    
+  grafana:
+    image: nuancemobility/grafana
+    volumes:
+     - ./run/grafana/config.js:/usr/share/grafana/config.js
+     
+     
+  # -------- stack: sensu --------
+  rabbitmq:
+    image: rabbitmq:3.5
+    ports:
+     - "5672:5672"
+     
+  sensu:
+    image: nuancemobility/sensu
+    links:
+     - carbonrelay
+     - rabbitmq
+    volumes:
+     - ./run/sensu/config:/etc/sensu/conf.d
+     - ./run/sensu/handlers:/etc/sensu/handlers
+     
+  uchiwa:
+    image: uchiwa/uchiwa
+    links:
+     - sensu
+    volumes:
+     - ./run/uchiwa:/config
+    ports:
+     - "3030:3000"
+     
+  sensuclient:
+    image: nuancemobility/sensu-client
+    volumes:
+     - ./run/sensu-client/config:/etc/sensu/conf.d
+     - ./run/mib:/etc/sensu/mib
+     - ./run/sensu-client/plugins:/etc/sensu/plugins
+     - /var/run:/var/run:rw
+     - /sys:/sys:ro
+  #   - /proc:/proc:ro
+    net: host
+    privileged: true
+    
+  # -------- stack: ELK --------
+  elasticsearch:
+    image: elasticsearch:1.6
+    command: -Des.node.name="hera_elasticsearch_001" -Des.bootstrap.mlockall=true
+    environment:
+     - ES_HEAP_SIZE=2g
+    volumes_from:
+     - heramonitoring_elasticsearchdata_1
+     
+  elasticsearchcurator:
+    image: nuancemobility/elasticsearch-curator
+    links:
+     - elasticsearch
+    volumes:
+     - ./run/elasticsearch-curator:/config
+  
+  kibana4:
+    image: kibana:4.1
+    links:
+     - elasticsearch
+  
+  logstash:
+    image: logstash:1.5
+    command: -f /config-dir/
+    environment:
+     - LS_HEAP_SIZE=2048m
+    links:
+     - elasticsearch
+    volumes:
+     - ./run/logstash/config:/config-dir
+     - ./run/mib:/mib
+     - ./run/logstash/ssl:/etc/pki/tls
+    ports:
+     - "5000:5000/udp"
+     - "5001:5001"
