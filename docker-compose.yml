@@ -59,15 +59,15 @@ services:
     command: cache
     volumes:
      - ./run/carbon/cache:/etc/carbon
-    volumes_from:
-     - heramonitoring_whisper_1
+#    volumes_from:
+#     - heramonitoring_whisper_1
      
   graphite:
     image: nuancemobility/graphite-web
     volumes:
      - ./run/graphite-web:/etc/graphite
-    volumes_from:
-     - heramonitoring_whisper_1
+#    volumes_from:
+#     - heramonitoring_whisper_1
     links:
      - carboncache
      
@@ -114,7 +114,7 @@ services:
      - /var/run:/var/run:rw
      - /sys:/sys:ro
   #   - /proc:/proc:ro
-    net: host
+  #  net: host
     privileged: true
     
   # -------- stack: ELK --------
@@ -123,8 +123,8 @@ services:
     command: -Des.node.name="hera_elasticsearch_001" -Des.bootstrap.mlockall=true
     environment:
      - ES_HEAP_SIZE=2g
-    volumes_from:
-     - heramonitoring_elasticsearchdata_1
+#    volumes_from:
+#     - heramonitoring_elasticsearchdata_1
      
   elasticsearchcurator:
     image: nuancemobility/elasticsearch-curator
