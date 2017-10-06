@@ -1,0 +1,35 @@
+version: '3'
+services:
+
+  elasticsearch:
+    image: elasticsearch:1.6
+    command: -Des.node.name="hera_elasticsearch_001" -Des.bootstrap.mlockall=true
+    environment:
+     - ES_HEAP_SIZE=2g
+
+  elasticsearchcurator:
+    image: nuancemobility/elasticsearch-curator
+    links:
+     - elasticsearch
+    volumes:
+     - ./run/elasticsearch-curator:/config
+
+  kibana4:
+    image: kibana:4.1
+    links:
+     - elasticsearch
+
+  logstash:
+    image: logstash:1.5
+    command: -f /config-dir/
+    environment:
+     - LS_HEAP_SIZE=2048m
+    links:
+     - elasticsearch
+    volumes:
+     - ./run/logstash/config:/config-dir
+     - ./run/mib:/mib
+     - ./run/logstash/ssl:/etc/pki/tls
+    ports:
+     - "5000:5000/udp"
+     - "5001:5001"

@@ -1,0 +1,42 @@
+version: '3'
+services:
+
+  carbonrelay:
+    image: nuancemobility/carbon
+    command: relay
+    ports:
+     - 2003:2003
+     - 2004:2004
+    volumes:
+     - ./run/carbon/relay:/etc/carbon
+    links:
+     - carboncache
+
+  carboncache:
+    image: nuancemobility/carbon
+    command: cache
+    volumes:
+     - ./run/carbon/cache:/etc/carbon
+#    volumes_from:
+#     - heramonitoring_whisper_1
+
+  graphiteweb:
+    image: nuancemobility/graphite-web
+    volumes:
+     - ./run/graphite-web:/etc/graphite
+#    volumes_from:
+#     - heramonitoring_whisper_1
+    links:
+     - carboncache
+
+  whisper:
+    image: nuancemobility/carbon
+    command: whisper
+
+  grafana:
+    image: nuancemobility/grafana
+    volumes:
+     - ./run/grafana/config.js:/usr/share/grafana/config.js
+
+# Collectd
+# StatsD
